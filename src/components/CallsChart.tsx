@@ -31,7 +31,6 @@ export function CallsChart({ rows }: CallsChartProps) {
               tick={{ fill: '#7a88b8', fontFamily: 'Poppins' }}
               axisLine={false}
               tickLine={false}
-              grid={{ stroke: 'rgba(122,136,184,0.08)' }}
             />
             <Tooltip
               contentStyle={{
