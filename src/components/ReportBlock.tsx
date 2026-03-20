@@ -9,7 +9,7 @@ interface ReportBlockProps {
 
 function SectionBar({ children, variant = "orange" }: { children: React.ReactNode; variant?: "orange" | "electric" }) {
   return (
-    <div className={`px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase flex items-center gap-2 ${
+    <div className={`px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase flex items-center justify-center ${
       variant === "electric"
         ? "bg-electric text-navy-deep"
         : "bg-orange text-navy-deep"
@@ -44,7 +44,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
 
       {/* España */}
       <SectionBar variant="orange">
-        <span className="text-sm">🇪🇸</span> Cerca España
+        Cerca España
       </SectionBar>
       <div className="grid grid-cols-4 border-b border-foreground/[0.06]">
         <KpiCard label="Total Llamadas" value={esp.totalCalls} variant="orange" index={0} />
@@ -55,7 +55,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
 
       {/* Portugal */}
       <SectionBar variant="electric">
-        <span className="text-sm">🇵🇹</span> Cerca Portugal
+        Cerca Portugal
       </SectionBar>
       <div className="grid grid-cols-4 border-b border-foreground/[0.06]">
         <KpiCard label="Total Llamadas" value={pt.totalCalls} variant="orange" index={0} />
@@ -88,8 +88,8 @@ export function ReportBlock({ report }: ReportBlockProps) {
             Cierre Total DIA España & Portugal
           </h2>
         </div>
-        <div className="bg-orange/10 px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase text-orange flex items-center gap-2 border-y border-orange/10">
-          <span className="text-sm">🌍</span> Cerca — Consolidado
+        <div className="bg-orange/10 px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase text-orange flex items-center justify-center border-y border-orange/10">
+          Cerca — Consolidado
         </div>
         <div className="grid grid-cols-4">
           <KpiCard label="Total Llamadas" value={total.totalCalls} variant="orange" index={0} />
