@@ -9,7 +9,7 @@ interface ReportBlockProps {
 
 function SectionBar({ children, variant = "orange" }: { children: React.ReactNode; variant?: "orange" | "electric" }) {
   return (
-    <div className={`px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase flex items-center gap-2 ${
+    <div className={`px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase flex items-center justify-center ${
       variant === "electric"
         ? "bg-electric text-navy-deep"
         : "bg-orange text-navy-deep"
