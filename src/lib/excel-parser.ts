@@ -80,13 +80,13 @@ function calculateMetrics(rows: CallRecord[]): Metrics {
   if (!rows || rows.length === 0) return { totalCalls: 0, agents: 0, attAvg: 0, wtAvg: 0 };
   const totalCalls = rows.reduce((s, r) => s + r.calls, 0);
   const agents = rows.length;
-  let wAtt = 0, wWt = 0;
-  rows.forEach(r => { wAtt += r.att * r.calls; wWt += r.awt * r.calls; });
+  const attSum = rows.reduce((s, r) => s + r.att, 0);
+  const wtSum = rows.reduce((s, r) => s + r.awt, 0);
   return {
     totalCalls,
     agents,
-    attAvg: totalCalls > 0 ? Math.round(wAtt / totalCalls) : 0,
-    wtAvg: totalCalls > 0 ? Math.round(wWt / totalCalls) : 0,
+    attAvg: agents > 0 ? Math.round(attSum / agents) : 0,
+    wtAvg: agents > 0 ? Math.round(wtSum / agents) : 0,
   };
 }
 
