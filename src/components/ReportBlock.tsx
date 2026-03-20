@@ -44,7 +44,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
 
       {/* España */}
       <SectionBar variant="orange">
-        <span className="text-sm">🇪🇸</span> Cerca España
+        Cerca España
       </SectionBar>
       <div className="grid grid-cols-4 border-b border-foreground/[0.06]">
         <KpiCard label="Total Llamadas" value={esp.totalCalls} variant="orange" index={0} />
