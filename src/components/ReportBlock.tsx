@@ -93,7 +93,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
         </div>
         <div className="grid grid-cols-4">
           <KpiCard label="Total Llamadas" value={total.totalCalls} variant="orange" index={0} />
-          <KpiCard label="Agentes" value={total.agents} variant="white" index={1} />
+          <KpiCard label="Agentes" value={total.agents} variant="orange" index={1} />
           <KpiCard label="ATT Promedio" value={total.attAvg} unit="s" variant="white" index={2} />
           <KpiCard label="WT Promedio" value={total.wtAvg} unit="s" variant="white" index={3} />
         </div>
