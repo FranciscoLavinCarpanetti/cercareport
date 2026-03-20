@@ -88,8 +88,8 @@ export function ReportBlock({ report }: ReportBlockProps) {
             Cierre Total DIA España & Portugal
           </h2>
         </div>
-        <div className="bg-orange/10 px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase text-orange flex items-center gap-2 border-y border-orange/10">
-          <span className="text-sm">🌍</span> Cerca — Consolidado
+        <div className="bg-orange/10 px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase text-orange flex items-center justify-center border-y border-orange/10">
+          Cerca — Consolidado
         </div>
         <div className="grid grid-cols-4">
           <KpiCard label="Total Llamadas" value={total.totalCalls} variant="orange" index={0} />
