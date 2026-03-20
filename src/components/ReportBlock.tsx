@@ -48,7 +48,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
       </SectionBar>
       <div className="grid grid-cols-4 border-b border-foreground/[0.06]">
         <KpiCard label="Total Llamadas" value={esp.totalCalls} variant="orange" index={0} />
-        <KpiCard label="Agentes" value={esp.agents} variant="white" index={1} />
+        <KpiCard label="Agentes" value={esp.agents} variant="orange" index={1} />
         <KpiCard label="ATT Promedio" value={esp.attAvg} unit="s" variant="white" index={2} />
         <KpiCard label="WT Promedio" value={esp.wtAvg} unit="s" variant="white" index={3} />
       </div>
