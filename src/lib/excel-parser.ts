@@ -139,11 +139,13 @@ export function generateReport(rows: CallRecord[]): Report {
 }
 
 export function generateReportText(report: Report, mode: 'daily' | 'monthly' = 'daily'): string {
-  const { esp, pt, total, reportDate, startDate, endDate } = report;
-  const d = formatDate(reportDate);
+  const { esp, pt, total, startDate, endDate, reportDate } = report;
+  const isMonthly = mode === 'monthly';
+  const title = isMonthly ? 'CIERRE MENSUAL España & Portugal' : 'CIERRE DIA España & Portugal';
+  const dateLabel = isMonthly ? `${formatDate(startDate)} — ${formatDate(endDate)}` : formatDate(reportDate);
   return [
-    `CIERRE DIA España & Portugal`,
-    `Indicadores Clave de Rendimiento · ${d}`, ``,
+    title,
+    `Indicadores Clave de Rendimiento · ${dateLabel}`, ``,
     `══ Cerca ESPAÑA ══`,
     `Total Llamadas : ${esp.totalCalls.toLocaleString('es-ES')}`,
     `Agentes        : ${esp.agents}`,
@@ -154,7 +156,7 @@ export function generateReportText(report: Report, mode: 'daily' | 'monthly' = '
     `Agentes        : ${pt.agents}`,
     `ATT Promedio   : ${pt.attAvg}s`,
     `WT Promedio    : ${pt.wtAvg}s`, ``,
-    `══ CIERRE TOTAL DIA España & Portugal ══`,
+    `══ ${isMonthly ? 'CIERRE TOTAL MENSUAL' : 'CIERRE TOTAL DIA'} España & Portugal ══`,
     `Total Llamadas : ${total.totalCalls.toLocaleString('es-ES')}`,
     `Agentes        : ${total.agents}`,
     `ATT Promedio   : ${total.attAvg}s`,
