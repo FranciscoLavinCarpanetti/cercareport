@@ -4,9 +4,10 @@ import { Upload, FileSpreadsheet } from "lucide-react";
 
 interface UploadZoneProps {
   onFileSelected: (file: File) => void;
+  subtitle?: string;
 }
 
-export function UploadZone({ onFileSelected }: UploadZoneProps) {
+export function UploadZone({ onFileSelected, subtitle = 'Carga tu informe diario para generar el cierre ejecutivo' }: UploadZoneProps) {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +37,7 @@ export function UploadZone({ onFileSelected }: UploadZoneProps) {
           Panel de <span className="text-orange">Reporting</span>
         </h1>
         <p className="text-sm text-gray-400 font-normal tracking-wide">
-          Carga tu informe diario para generar el cierre ejecutivo
+          {subtitle}
         </p>
       </motion.div>
 

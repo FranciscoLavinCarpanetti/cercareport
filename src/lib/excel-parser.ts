@@ -20,6 +20,9 @@ export interface Report {
   pt: Metrics;
   total: Metrics;
   reportDate: string;
+  startDate: string;
+  endDate: string;
+  uniqueDays: number;
   allRows: CallRecord[];
 }
 
@@ -90,6 +93,14 @@ function calculateMetrics(rows: CallRecord[]): Metrics {
   };
 }
 
+function parseDateValue(val: string): Date | null {
+  const s = String(val).trim();
+  const m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export function generateReport(rows: CallRecord[]): Report {
   const grouped: Record<string, CallRecord[]> = {};
   rows.forEach(r => {
@@ -99,23 +110,42 @@ export function generateReport(rows: CallRecord[]): Report {
   const espRows = grouped['España'] || [];
   const ptRows = grouped['Portugal'] || [];
   const freq: Record<string, number> = {};
-  rows.forEach(r => { const k = String(r.date).trim(); freq[k] = (freq[k] || 0) + 1; });
+  const uniqueDates = new Set<string>();
+  rows.forEach(r => {
+    const k = String(r.date).trim();
+    freq[k] = (freq[k] || 0) + 1;
+    uniqueDates.add(k);
+  });
   const reportDate = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0] || '';
+
+  const sortedDates = Array.from(uniqueDates)
+    .map(d => ({ raw: d, parsed: parseDateValue(d) }))
+    .filter(d => d.parsed !== null)
+    .sort((a, b) => a.parsed!.getTime() - b.parsed!.getTime());
+
+  const startDate = sortedDates.length > 0 ? sortedDates[0].raw : reportDate;
+  const endDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1].raw : reportDate;
+
   return {
     esp: calculateMetrics(espRows),
     pt: calculateMetrics(ptRows),
     total: calculateMetrics(rows),
     reportDate,
+    startDate,
+    endDate,
+    uniqueDays: uniqueDates.size,
     allRows: rows,
   };
 }
 
-export function generateReportText(report: Report): string {
-  const { esp, pt, total, reportDate } = report;
-  const d = formatDate(reportDate);
+export function generateReportText(report: Report, mode: 'daily' | 'monthly' = 'daily'): string {
+  const { esp, pt, total, startDate, endDate, reportDate } = report;
+  const isMonthly = mode === 'monthly';
+  const title = isMonthly ? 'CIERRE MENSUAL España & Portugal' : 'CIERRE DIA España & Portugal';
+  const dateLabel = isMonthly ? `${formatDate(startDate)} — ${formatDate(endDate)}` : formatDate(reportDate);
   return [
-    `CIERRE DIA España & Portugal`,
-    `Indicadores Clave de Rendimiento · ${d}`, ``,
+    title,
+    `Indicadores Clave de Rendimiento · ${dateLabel}`, ``,
     `══ Cerca ESPAÑA ══`,
     `Total Llamadas : ${esp.totalCalls.toLocaleString('es-ES')}`,
     `Agentes        : ${esp.agents}`,
@@ -126,7 +156,7 @@ export function generateReportText(report: Report): string {
     `Agentes        : ${pt.agents}`,
     `ATT Promedio   : ${pt.attAvg}s`,
     `WT Promedio    : ${pt.wtAvg}s`, ``,
-    `══ CIERRE TOTAL DIA España & Portugal ══`,
+    `══ ${isMonthly ? 'CIERRE TOTAL MENSUAL' : 'CIERRE TOTAL DIA'} España & Portugal ══`,
     `Total Llamadas : ${total.totalCalls.toLocaleString('es-ES')}`,
     `Agentes        : ${total.agents}`,
     `ATT Promedio   : ${total.attAvg}s`,
