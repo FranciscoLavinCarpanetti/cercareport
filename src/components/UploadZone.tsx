@@ -7,7 +7,7 @@ interface UploadZoneProps {
   subtitle?: string;
 }
 
-export function UploadZone({ onFileSelected }: UploadZoneProps) {
+export function UploadZone({ onFileSelected, subtitle = 'Carga tu informe diario para generar el cierre ejecutivo' }: UploadZoneProps) {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
