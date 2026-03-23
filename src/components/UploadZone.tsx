@@ -4,6 +4,7 @@ import { Upload, FileSpreadsheet } from "lucide-react";
 
 interface UploadZoneProps {
   onFileSelected: (file: File) => void;
+  subtitle?: string;
 }
 
 export function UploadZone({ onFileSelected }: UploadZoneProps) {
