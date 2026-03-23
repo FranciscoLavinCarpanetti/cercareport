@@ -93,6 +93,14 @@ function calculateMetrics(rows: CallRecord[]): Metrics {
   };
 }
 
+function parseDateValue(val: string): Date | null {
+  const s = String(val).trim();
+  const m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export function generateReport(rows: CallRecord[]): Report {
   const grouped: Record<string, CallRecord[]> = {};
   rows.forEach(r => {
@@ -102,19 +110,36 @@ export function generateReport(rows: CallRecord[]): Report {
   const espRows = grouped['España'] || [];
   const ptRows = grouped['Portugal'] || [];
   const freq: Record<string, number> = {};
-  rows.forEach(r => { const k = String(r.date).trim(); freq[k] = (freq[k] || 0) + 1; });
+  const uniqueDates = new Set<string>();
+  rows.forEach(r => {
+    const k = String(r.date).trim();
+    freq[k] = (freq[k] || 0) + 1;
+    uniqueDates.add(k);
+  });
   const reportDate = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0] || '';
+
+  const sortedDates = Array.from(uniqueDates)
+    .map(d => ({ raw: d, parsed: parseDateValue(d) }))
+    .filter(d => d.parsed !== null)
+    .sort((a, b) => a.parsed!.getTime() - b.parsed!.getTime());
+
+  const startDate = sortedDates.length > 0 ? sortedDates[0].raw : reportDate;
+  const endDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1].raw : reportDate;
+
   return {
     esp: calculateMetrics(espRows),
     pt: calculateMetrics(ptRows),
     total: calculateMetrics(rows),
     reportDate,
+    startDate,
+    endDate,
+    uniqueDays: uniqueDates.size,
     allRows: rows,
   };
 }
 
-export function generateReportText(report: Report): string {
-  const { esp, pt, total, reportDate } = report;
+export function generateReportText(report: Report, mode: 'daily' | 'monthly' = 'daily'): string {
+  const { esp, pt, total, reportDate, startDate, endDate } = report;
   const d = formatDate(reportDate);
   return [
     `CIERRE DIA España & Portugal`,
