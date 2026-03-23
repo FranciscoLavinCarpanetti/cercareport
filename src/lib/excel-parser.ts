@@ -20,6 +20,9 @@ export interface Report {
   pt: Metrics;
   total: Metrics;
   reportDate: string;
+  startDate: string;
+  endDate: string;
+  uniqueDays: number;
   allRows: CallRecord[];
 }
 
