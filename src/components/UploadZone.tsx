@@ -37,7 +37,7 @@ export function UploadZone({ onFileSelected, subtitle = 'Carga tu informe diario
           Panel de <span className="text-orange">Reporting</span>
         </h1>
         <p className="text-sm text-gray-400 font-normal tracking-wide">
-          Carga tu informe diario para generar el cierre ejecutivo
+          {subtitle}
         </p>
       </motion.div>
 
