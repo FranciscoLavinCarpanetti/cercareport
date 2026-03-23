@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 interface ReportBlockProps {
   report: Report;
+  mode?: 'daily' | 'monthly';
 }
 
 function SectionBar({ children, variant = "orange" }: { children: React.ReactNode; variant?: "orange" | "electric" }) {
@@ -19,9 +20,14 @@ function SectionBar({ children, variant = "orange" }: { children: React.ReactNod
   );
 }
 
-export function ReportBlock({ report }: ReportBlockProps) {
-  const { esp, pt, total, reportDate } = report;
-  const dateStr = formatDate(reportDate);
+export function ReportBlock({ report, mode = 'daily' }: ReportBlockProps) {
+  const { esp, pt, total, reportDate, startDate, endDate, uniqueDays } = report;
+  const isMonthly = mode === 'monthly';
+  const dateStr = isMonthly
+    ? `${formatDate(startDate)} — ${formatDate(endDate)}`
+    : formatDate(reportDate);
+  const title = isMonthly ? 'Cierre Mensual España & Portugal' : 'Cierre DIA España & Portugal';
+  const totalTitle = isMonthly ? 'Cierre Total Mensual España & Portugal' : 'Cierre Total DIA España & Portugal';
 
   return (
     <motion.div
@@ -35,11 +41,16 @@ export function ReportBlock({ report }: ReportBlockProps) {
       <div className="relative px-8 py-6 text-center bg-navy-deep">
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-orange to-transparent" />
         <h1 className="text-xl font-bold tracking-[2px] uppercase leading-[1.1]">
-          Cierre DIA España & Portugal
+          {title}
         </h1>
         <div className="text-[10px] text-orange tracking-[1.5px] uppercase mt-2 font-semibold">
           Indicadores Clave de Rendimiento · {dateStr}
         </div>
+        {isMonthly && (
+          <div className="text-[10px] text-electric tracking-[1px] mt-1 font-medium">
+            {uniqueDays} días evaluados
+          </div>
+        )}
       </div>
 
       {/* España */}
@@ -85,7 +96,7 @@ export function ReportBlock({ report }: ReportBlockProps) {
       <div className="bg-navy-deep border-t border-foreground/[0.06]">
         <div className="px-8 py-4 text-center border-b border-orange/20">
           <h2 className="text-[15px] font-bold tracking-[2px] uppercase text-foreground/80">
-            Cierre Total DIA España & Portugal
+            {totalTitle}
           </h2>
         </div>
         <div className="bg-orange/10 px-8 py-2 text-[11px] font-bold tracking-[2px] uppercase text-orange flex items-center justify-center border-y border-orange/10">
