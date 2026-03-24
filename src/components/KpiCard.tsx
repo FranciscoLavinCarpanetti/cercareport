@@ -26,7 +26,7 @@ export function KpiCard({ label, value, unit, variant = "orange", index = 0 }: K
         {label}
       </div>
       <div className={`text-[38px] font-extrabold leading-none tracking-[-1px] tabular-nums ${colorMap[variant]}`}>
-        {value.toLocaleString('es-ES')}
+        {new Intl.NumberFormat('es-ES', { useGrouping: true }).format(value)}
         {unit && <span className="text-sm font-semibold text-gray-400 ml-0.5">{unit}</span>}
       </div>
     </motion.div>
