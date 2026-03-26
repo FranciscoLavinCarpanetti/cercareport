@@ -1,111 +1,204 @@
-export interface StaffingInput {
-  volume: number;
-  aht: number;
-  slaTarget: number;
-  timeTarget: number;
-  occupancyTarget: number;
-  shrinkage: number;
-  currentStaff: number;
-  shiftHours: number;
+// Interval-based Erlang C staffing engine
+
+export interface IntervalData {
+  hour: string;    // "HH:mm"
+  calls: number;
+}
+
+export interface StaffingParams {
+  aht: number;          // seconds
+  slaTarget: number;    // % (e.g. 80)
+  timeTarget: number;   // seconds (e.g. 30)
+  shrinkage: number;    // % (e.g. 20)
+  intervalMinutes: number; // typically 60
+}
+
+export interface IntervalResult {
+  hour: string;
+  calls: number;
+  erlangs: number;
+  staffRequired: number;
+  sla: number;
+  occupancy: number;
+  pw: number;
 }
 
 export interface StaffingResult {
-  staffRequired: number;
-  gap: number;
-  gapType: 'deficit' | 'excess' | 'balanced';
-  occupancyEstimated: number;
-  erlangSLA: number;
-  // Breakdown for debug/display
-  workloadSeconds: number;
-  workloadHours: number;
-  productiveHoursPerAgent: number;
-  staffBase: number;
+  intervals: IntervalResult[];
+  peakStaff: number;
+  peakHour: string;
+  avgStaff: number;
+  weightedSLA: number;
+  totalCalls: number;
+  avgOccupancy: number;
 }
 
+// Memoized factorial with BigInt-like approach for large N
+const factorialCache = new Map<number, number>();
 function factorial(n: number): number {
   if (n <= 1) return 1;
+  if (factorialCache.has(n)) return factorialCache.get(n)!;
   let result = 1;
   for (let i = 2; i <= n; i++) result *= i;
+  factorialCache.set(n, result);
   return result;
 }
 
-function erlangC(agents: number, trafficIntensity: number): number {
-  if (agents <= 0 || trafficIntensity <= 0) return 0;
-  if (agents <= trafficIntensity) return 1;
+// Erlang C probability using log-space to avoid overflow
+function erlangCPw(agents: number, erlangs: number): number {
+  if (agents <= 0 || erlangs <= 0) return 0;
+  if (agents <= erlangs) return 1;
 
-  const m = Math.floor(agents);
-  const a = trafficIntensity;
+  const N = Math.floor(agents);
+  const A = erlangs;
 
-  const numerator = (Math.pow(a, m) / factorial(m)) * (m / (m - a));
-  let denominator = 0;
-  for (let k = 0; k < m; k++) {
-    denominator += Math.pow(a, k) / factorial(k);
+  // Use log-space for numerical stability
+  // log(A^N / N!) = N*ln(A) - ln(N!)
+  let logNumerator = N * Math.log(A) - logFactorial(N) + Math.log(N / (N - A));
+
+  let logDenomSum = -Infinity; // log of sum of terms
+  for (let k = 0; k < N; k++) {
+    const logTerm = k * Math.log(A) - logFactorial(k);
+    logDenomSum = logSumExp(logDenomSum, logTerm);
   }
-  denominator += numerator;
+  logDenomSum = logSumExp(logDenomSum, logNumerator);
 
-  return Math.min(1, Math.max(0, numerator / denominator));
+  const pw = Math.exp(logNumerator - logDenomSum);
+  return Math.min(1, Math.max(0, pw));
 }
 
-export function calculateStaffing(input: StaffingInput): StaffingResult {
-  const { volume, aht, occupancyTarget, shrinkage, currentStaff, shiftHours } = input;
+const logFactorialCache = new Map<number, number>();
+function logFactorial(n: number): number {
+  if (n <= 1) return 0;
+  if (logFactorialCache.has(n)) return logFactorialCache.get(n)!;
+  let result = 0;
+  for (let i = 2; i <= n; i++) result += Math.log(i);
+  logFactorialCache.set(n, result);
+  return result;
+}
 
-  const emptyResult: StaffingResult = {
-    staffRequired: 0, gap: 0, gapType: 'balanced',
-    occupancyEstimated: 0, erlangSLA: 100,
-    workloadSeconds: 0, workloadHours: 0, productiveHoursPerAgent: 0, staffBase: 0,
-  };
+function logSumExp(a: number, b: number): number {
+  if (a === -Infinity) return b;
+  if (b === -Infinity) return a;
+  const max = Math.max(a, b);
+  return max + Math.log(Math.exp(a - max) + Math.exp(b - max));
+}
 
-  if (volume <= 0 || aht <= 0 || shiftHours <= 0) return emptyResult;
+function calculateSLA(agents: number, erlangs: number, aht: number, timeTarget: number): number {
+  if (agents <= erlangs) return 0;
+  const pw = erlangCPw(agents, erlangs);
+  const sla = 1 - pw * Math.exp(-(agents - erlangs) * (timeTarget / aht));
+  return Math.min(1, Math.max(0, sla));
+}
 
-  // Step 1: Total daily workload in seconds
-  const workloadSeconds = volume * aht;
+function calculateOccupancy(erlangs: number, agents: number): number {
+  if (agents <= 0) return 0;
+  return Math.min(100, (erlangs / agents) * 100);
+}
 
-  // Step 2: Convert to hours
-  const workloadHours = workloadSeconds / 3600;
+/**
+ * For a single interval, find the minimum agents needed to meet SLA target.
+ * Uses binary search + iteration with a max cap.
+ */
+function findMinAgents(
+  erlangs: number,
+  aht: number,
+  slaTarget: number,  // as fraction 0-1
+  timeTarget: number,
+  maxAgents: number = 500
+): { agents: number; sla: number; pw: number } {
+  if (erlangs <= 0) return { agents: 0, sla: 1, pw: 0 };
 
-  // Step 3: Productive hours per agent per day
-  const occupancyFraction = occupancyTarget / 100;
-  const productiveHoursPerAgent = shiftHours * occupancyFraction;
+  const minAgents = Math.ceil(erlangs) + 1;
 
-  if (productiveHoursPerAgent <= 0) return emptyResult;
+  // Binary search
+  let lo = minAgents;
+  let hi = Math.max(minAgents, maxAgents);
 
-  // Step 4: Base staff
-  const staffBase = workloadHours / productiveHoursPerAgent;
+  // Quick check: if even maxAgents can't meet SLA, return maxAgents
+  const slaAtMax = calculateSLA(hi, erlangs, aht, timeTarget);
+  if (slaAtMax < slaTarget) {
+    return { agents: hi, sla: Math.round(slaAtMax * 1000) / 10, pw: erlangCPw(hi, erlangs) };
+  }
 
-  // Step 5: Adjust for shrinkage
-  const shrinkageFraction = shrinkage / 100;
-  const shrinkageFactor = 1 - shrinkageFraction;
-  const staffRequired = shrinkageFactor > 0 ? Math.ceil(staffBase / shrinkageFactor) : 0;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const sla = calculateSLA(mid, erlangs, aht, timeTarget);
+    if (sla >= slaTarget) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
+    }
+  }
 
-  // Gap
-  const gap = currentStaff - staffRequired;
-  const gapType: 'deficit' | 'excess' | 'balanced' = gap < 0 ? 'deficit' : gap > 0 ? 'excess' : 'balanced';
+  const finalSla = calculateSLA(lo, erlangs, aht, timeTarget);
+  const finalPw = erlangCPw(lo, erlangs);
+  return { agents: lo, sla: Math.round(finalSla * 1000) / 10, pw: finalPw };
+}
 
-  // Occupancy estimated with the calculated staff
-  const totalAvailableHours = staffRequired * shrinkageFactor * shiftHours;
-  const occupancyEstimated = totalAvailableHours > 0
-    ? Math.min(100, Math.round((workloadHours / totalAvailableHours) * 1000) / 10)
+export function calculateIntervalStaffing(
+  intervals: IntervalData[],
+  params: StaffingParams
+): StaffingResult {
+  const { aht, slaTarget, timeTarget, shrinkage, intervalMinutes } = params;
+  const slaFraction = slaTarget / 100;
+  const shrinkageFactor = 1 - shrinkage / 100;
+  const intervalSeconds = intervalMinutes * 60;
+
+  const results: IntervalResult[] = intervals.map(({ hour, calls }) => {
+    if (calls <= 0 || aht <= 0) {
+      return { hour, calls, erlangs: 0, staffRequired: 0, sla: 100, occupancy: 0, pw: 0 };
+    }
+
+    const erlangs = (calls * aht) / intervalSeconds;
+    const { agents: rawAgents, sla, pw } = findMinAgents(erlangs, aht, slaFraction, timeTarget);
+
+    // Adjust for shrinkage
+    const staffRequired = shrinkageFactor > 0 ? Math.ceil(rawAgents / shrinkageFactor) : 0;
+    const occupancy = calculateOccupancy(erlangs, rawAgents);
+
+    return { hour, calls, erlangs: Math.round(erlangs * 100) / 100, staffRequired, sla, occupancy: Math.round(occupancy * 10) / 10, pw };
+  });
+
+  const totalCalls = results.reduce((s, r) => s + r.calls, 0);
+  const intervalsWithCalls = results.filter(r => r.calls > 0);
+  const peakInterval = results.reduce((max, r) => r.staffRequired > max.staffRequired ? r : max, results[0]);
+
+  const weightedSLA = totalCalls > 0
+    ? Math.round(results.reduce((s, r) => s + r.sla * r.calls, 0) / totalCalls * 10) / 10
     : 0;
 
-  // Erlang C SLA (hourly model: peak hour approximation)
-  // Distribute volume across shift hours for peak-hour Erlang calculation
-  const hourlyVolume = volume / shiftHours;
-  const trafficIntensity = (hourlyVolume * aht) / 3600;
-  const agentsPerHour = Math.floor(staffRequired * shrinkageFactor);
-  const pw = erlangC(agentsPerHour, trafficIntensity);
-  const erlangSLA = agentsPerHour > trafficIntensity
-    ? Math.min(100, Math.round((1 - pw * Math.exp(-(agentsPerHour - trafficIntensity) * (input.timeTarget / aht))) * 1000) / 10)
+  const avgStaff = intervalsWithCalls.length > 0
+    ? Math.round(intervalsWithCalls.reduce((s, r) => s + r.staffRequired, 0) / intervalsWithCalls.length * 10) / 10
+    : 0;
+
+  const avgOccupancy = intervalsWithCalls.length > 0
+    ? Math.round(intervalsWithCalls.reduce((s, r) => s + r.occupancy, 0) / intervalsWithCalls.length * 10) / 10
     : 0;
 
   return {
-    staffRequired,
-    gap: Math.abs(gap),
-    gapType,
-    occupancyEstimated,
-    erlangSLA: Math.max(0, erlangSLA),
-    workloadSeconds,
-    workloadHours: Math.round(workloadHours * 10) / 10,
-    productiveHoursPerAgent: Math.round(productiveHoursPerAgent * 10) / 10,
-    staffBase: Math.round(staffBase * 10) / 10,
+    intervals: results,
+    peakStaff: peakInterval?.staffRequired ?? 0,
+    peakHour: peakInterval?.hour ?? '',
+    avgStaff,
+    weightedSLA,
+    totalCalls,
+    avgOccupancy,
   };
+}
+
+/**
+ * Generate default 24h intervals with uniform distribution from daily volume
+ */
+export function generateDefaultIntervals(dailyVolume: number, startHour = 0, endHour = 24): IntervalData[] {
+  const hours = endHour - startHour;
+  const perHour = Math.round(dailyVolume / hours);
+  const intervals: IntervalData[] = [];
+  for (let h = startHour; h < endHour; h++) {
+    intervals.push({
+      hour: `${String(h).padStart(2, '0')}:00`,
+      calls: perHour,
+    });
+  }
+  return intervals;
 }
