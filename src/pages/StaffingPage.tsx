@@ -123,9 +123,9 @@ export default function StaffingPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Carga total (horas)</span>
-            <span className="text-foreground font-semibold tabular-nums">{result.workloadHours}h</span>
-            <span className="text-[9px] text-muted-foreground block">{fmt(result.workloadSeconds)}s = {fmt(volume)} × {aht}s</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Carga operativa total</span>
+            <span className="text-foreground font-semibold tabular-nums">{result.workloadHours} horas-agente</span>
+            <span className="text-[9px] text-muted-foreground block">{fmt(volume)} llamadas × {aht}s ÷ 3600</span>
           </div>
           <div>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Horas productivas/agente</span>
