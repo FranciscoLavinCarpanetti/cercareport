@@ -6,6 +6,7 @@ export interface StaffingInput {
   occupancyTarget: number;
   shrinkage: number;
   currentStaff: number;
+  shiftHours: number;
 }
 
 export interface StaffingResult {
@@ -14,6 +15,11 @@ export interface StaffingResult {
   gapType: 'deficit' | 'excess' | 'balanced';
   occupancyEstimated: number;
   erlangSLA: number;
+  // Breakdown for debug/display
+  workloadSeconds: number;
+  workloadHours: number;
+  productiveHoursPerAgent: number;
+  staffBase: number;
 }
 
 function factorial(n: number): number {
@@ -41,41 +47,65 @@ function erlangC(agents: number, trafficIntensity: number): number {
 }
 
 export function calculateStaffing(input: StaffingInput): StaffingResult {
-  const { volume, aht, occupancyTarget, shrinkage, currentStaff, slaTarget, timeTarget } = input;
+  const { volume, aht, occupancyTarget, shrinkage, currentStaff, shiftHours } = input;
 
-  if (volume <= 0 || aht <= 0) {
-    return { staffRequired: 0, gap: 0, gapType: 'balanced', occupancyEstimated: 0, erlangSLA: 100 };
-  }
+  const emptyResult: StaffingResult = {
+    staffRequired: 0, gap: 0, gapType: 'balanced',
+    occupancyEstimated: 0, erlangSLA: 100,
+    workloadSeconds: 0, workloadHours: 0, productiveHoursPerAgent: 0, staffBase: 0,
+  };
 
-  const workload = volume * aht;
-  const capacity = 3600 * (occupancyTarget / 100);
-  const rawStaff = capacity > 0 ? workload / capacity : 0;
-  const shrinkageFactor = 1 - shrinkage / 100;
-  let staffRequired = shrinkageFactor > 0 ? Math.ceil(rawStaff / shrinkageFactor) : 0;
+  if (volume <= 0 || aht <= 0 || shiftHours <= 0) return emptyResult;
 
-  // Erlang C refinement: increase staff until SLA target is met
-  const trafficIntensity = workload / 3600;
-  let bestStaff = Math.max(staffRequired, Math.ceil(trafficIntensity) + 1);
-  for (let s = bestStaff; s < bestStaff + 200; s++) {
-    const pw = erlangC(s, trafficIntensity);
-    const sla = (1 - pw * Math.exp(-(s - trafficIntensity) * (timeTarget / aht))) * 100;
-    if (sla >= slaTarget) {
-      bestStaff = s;
-      break;
-    }
-  }
+  // Step 1: Total daily workload in seconds
+  const workloadSeconds = volume * aht;
 
-  const finalStaff = Math.max(staffRequired, Math.ceil(bestStaff / (shrinkageFactor || 1)));
-  staffRequired = finalStaff;
+  // Step 2: Convert to hours
+  const workloadHours = workloadSeconds / 3600;
 
+  // Step 3: Productive hours per agent per day
+  const occupancyFraction = occupancyTarget / 100;
+  const productiveHoursPerAgent = shiftHours * occupancyFraction;
+
+  if (productiveHoursPerAgent <= 0) return emptyResult;
+
+  // Step 4: Base staff
+  const staffBase = workloadHours / productiveHoursPerAgent;
+
+  // Step 5: Adjust for shrinkage
+  const shrinkageFraction = shrinkage / 100;
+  const shrinkageFactor = 1 - shrinkageFraction;
+  const staffRequired = shrinkageFactor > 0 ? Math.ceil(staffBase / shrinkageFactor) : 0;
+
+  // Gap
   const gap = currentStaff - staffRequired;
   const gapType: 'deficit' | 'excess' | 'balanced' = gap < 0 ? 'deficit' : gap > 0 ? 'excess' : 'balanced';
 
-  const actualCapacity = staffRequired * shrinkageFactor * 3600;
-  const occupancyEstimated = actualCapacity > 0 ? Math.min(100, Math.round((workload / actualCapacity) * 1000) / 10) : 0;
+  // Occupancy estimated with the calculated staff
+  const totalAvailableHours = staffRequired * shrinkageFactor * shiftHours;
+  const occupancyEstimated = totalAvailableHours > 0
+    ? Math.min(100, Math.round((workloadHours / totalAvailableHours) * 1000) / 10)
+    : 0;
 
-  const pwFinal = erlangC(Math.floor(staffRequired * shrinkageFactor), trafficIntensity);
-  const erlangSLA = Math.min(100, Math.round((1 - pwFinal * Math.exp(-(staffRequired * shrinkageFactor - trafficIntensity) * (timeTarget / aht))) * 1000) / 10);
+  // Erlang C SLA (hourly model: peak hour approximation)
+  // Distribute volume across shift hours for peak-hour Erlang calculation
+  const hourlyVolume = volume / shiftHours;
+  const trafficIntensity = (hourlyVolume * aht) / 3600;
+  const agentsPerHour = Math.floor(staffRequired * shrinkageFactor);
+  const pw = erlangC(agentsPerHour, trafficIntensity);
+  const erlangSLA = agentsPerHour > trafficIntensity
+    ? Math.min(100, Math.round((1 - pw * Math.exp(-(agentsPerHour - trafficIntensity) * (input.timeTarget / aht))) * 1000) / 10)
+    : 0;
 
-  return { staffRequired, gap: Math.abs(gap), gapType, occupancyEstimated, erlangSLA: Math.max(0, erlangSLA) };
+  return {
+    staffRequired,
+    gap: Math.abs(gap),
+    gapType,
+    occupancyEstimated,
+    erlangSLA: Math.max(0, erlangSLA),
+    workloadSeconds,
+    workloadHours: Math.round(workloadHours * 10) / 10,
+    productiveHoursPerAgent: Math.round(productiveHoursPerAgent * 10) / 10,
+    staffBase: Math.round(staffBase * 10) / 10,
+  };
 }
