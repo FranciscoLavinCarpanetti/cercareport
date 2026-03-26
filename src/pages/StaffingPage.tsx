@@ -1,44 +1,127 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Users, AlertTriangle, CheckCircle, MinusCircle, HelpCircle, Info } from "lucide-react";
+import { Users, TrendingUp, Clock, BarChart3, AlertTriangle, Upload, RotateCcw, Plus, Minus } from "lucide-react";
 import { useWorkforce } from "@/contexts/WorkforceContext";
-import { calculateStaffing, type StaffingInput } from "@/lib/workforce/staffing";
+import {
+  calculateIntervalStaffing,
+  generateDefaultIntervals,
+  type IntervalData,
+  type StaffingParams,
+} from "@/lib/workforce/staffing";
 import { UploadZone } from "@/components/UploadZone";
 import { ProcessingOverlay } from "@/components/ProcessingOverlay";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IntervalTable } from "@/components/staffing/IntervalTable";
+import { StaffingChart } from "@/components/staffing/StaffingChart";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+
+function parseStaffingExcel(buffer: ArrayBuffer): IntervalData[] | null {
+  try {
+    const wb = XLSX.read(new Uint8Array(buffer), { type: "array", raw: false, cellText: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+
+    const intervals: IntervalData[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 2) continue;
+      const hourRaw = String(row[0]).trim();
+      const callsRaw = parseInt(String(row[1]).replace(/[^\d]/g, ""), 10) || 0;
+      // Accept HH:mm or just HH
+      const hourMatch = hourRaw.match(/^(\d{1,2}):?(\d{2})?$/);
+      if (!hourMatch) continue;
+      const h = hourMatch[1].padStart(2, "0");
+      const m = hourMatch[2] || "00";
+      intervals.push({ hour: `${h}:${m}`, calls: callsRaw });
+    }
+    return intervals.length > 0 ? intervals : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function StaffingPage() {
   const { daily, monthly, activeMode, handleFile } = useWorkforce();
-  const state = activeMode === 'daily' ? daily : monthly;
+  const state = activeMode === "daily" ? daily : monthly;
   const report = state.report;
 
-  const defaults = useMemo(() => {
-    if (!report) return { staff: 10, volume: 500, aht: 180 };
-    return { staff: report.total.agents, volume: report.total.totalCalls, aht: report.total.attAvg };
-  }, [report]);
+  // Interval data source
+  const [intervals, setIntervals] = useState<IntervalData[] | null>(null);
+  const [useManual, setUseManual] = useState(false);
+  const [staffingFileLoaded, setStaffingFileLoaded] = useState(false);
 
-  const [volume, setVolume] = useState(defaults.volume);
-  const [aht, setAht] = useState(defaults.aht);
+  // Params
+  const [aht, setAht] = useState(report?.total.attAvg || 180);
   const [slaTarget, setSlaTarget] = useState(80);
   const [timeTarget, setTimeTarget] = useState(30);
-  const [occupancyTarget, setOccupancyTarget] = useState(85);
   const [shrinkage, setShrinkage] = useState(20);
-  const [shiftHours, setShiftHours] = useState(8);
 
-  const [lastDefaults, setLastDefaults] = useState(defaults);
-  if (defaults !== lastDefaults) {
-    setVolume(defaults.volume);
-    setAht(defaults.aht);
-    setLastDefaults(defaults);
+  // Sync AHT from report
+  const [lastReport, setLastReport] = useState(report);
+  if (report !== lastReport) {
+    if (report) setAht(report.total.attAvg || 180);
+    setLastReport(report);
   }
 
-  const input: StaffingInput = { volume, aht, slaTarget, timeTarget, occupancyTarget, shrinkage, currentStaff: defaults.staff, shiftHours };
-  const result = useMemo(() => calculateStaffing(input), [volume, aht, slaTarget, timeTarget, occupancyTarget, shrinkage, defaults.staff, shiftHours]);
+  const activeIntervals = useMemo(() => {
+    if (intervals) return intervals;
+    if (report && !useManual) {
+      // Generate default distribution from daily volume
+      return generateDefaultIntervals(report.total.totalCalls, 8, 20);
+    }
+    return null;
+  }, [intervals, report, useManual]);
 
-  const fmt = (v: number) => new Intl.NumberFormat('es-ES', { useGrouping: true }).format(v);
+  const params: StaffingParams = { aht, slaTarget, timeTarget, shrinkage, intervalMinutes: 60 };
+  const result = useMemo(
+    () => (activeIntervals ? calculateIntervalStaffing(activeIntervals, params) : null),
+    [activeIntervals, aht, slaTarget, timeTarget, shrinkage]
+  );
 
+  const handleStaffingFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const parsed = parseStaffingExcel(e.target!.result as ArrayBuffer);
+      if (parsed) {
+        setIntervals(parsed);
+        setStaffingFileLoaded(true);
+        setUseManual(false);
+        toast.success(`${parsed.length} intervalos cargados`);
+      } else {
+        toast.error("No se encontraron datos horarios. Formato esperado: Hora | Llamadas");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const handleManualEdit = useCallback((index: number, calls: number) => {
+    setIntervals((prev) => {
+      const arr = prev ? [...prev] : generateDefaultIntervals(0, 0, 24);
+      arr[index] = { ...arr[index], calls: Math.max(0, calls) };
+      return arr;
+    });
+  }, []);
+
+  const handleGenerateManual = useCallback(() => {
+    const vol = report?.total.totalCalls || 500;
+    setIntervals(generateDefaultIntervals(vol, 8, 20));
+    setUseManual(true);
+    setStaffingFileLoaded(false);
+  }, [report]);
+
+  const handleReset = useCallback(() => {
+    setIntervals(null);
+    setUseManual(false);
+    setStaffingFileLoaded(false);
+  }, []);
+
+  const fmt = (v: number) => new Intl.NumberFormat("es-ES").format(v);
+
+  // Show base upload if no report
   if (!report) {
     return (
       <>
@@ -48,172 +131,169 @@ export default function StaffingPage() {
     );
   }
 
-  const gapIcon = result.gapType === 'deficit'
-    ? <AlertTriangle className="w-4 h-4 text-destructive" />
-    : result.gapType === 'excess'
-    ? <CheckCircle className="w-4 h-4 text-emerald-400" />
-    : <MinusCircle className="w-4 h-4 text-muted-foreground" />;
-
-  const gapColor = result.gapType === 'deficit' ? 'text-destructive' : result.gapType === 'excess' ? 'text-emerald-400' : 'text-muted-foreground';
-  const gapLabel = result.gapType === 'deficit' ? 'Déficit' : result.gapType === 'excess' ? 'Exceso' : 'Equilibrado';
+  // No interval data yet
+  if (!activeIntervals) {
+    return (
+      <div className="min-h-screen bg-background bg-dot-pattern p-6 lg:p-8">
+        <Header />
+        <div className="max-w-2xl mx-auto mt-12 space-y-6">
+          <div className="bg-card rounded-xl border border-border p-8 text-center">
+            <AlertTriangle className="w-10 h-10 text-orange mx-auto mb-4" />
+            <h2 className="text-lg font-bold mb-2">Distribución horaria requerida</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              El dimensionamiento por Erlang C requiere datos de volumen por intervalo horario. Elige una opción:
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <label className="cursor-pointer">
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleStaffingFile(e.target.files[0])} />
+                <div className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-electric/15 text-electric text-sm font-semibold hover:bg-electric/25 transition-colors">
+                  <Upload className="w-4 h-4" /> Subir Excel horario
+                </div>
+              </label>
+              <Button variant="outline" onClick={handleGenerateManual} className="gap-2">
+                <BarChart3 className="w-4 h-4" /> Distribución uniforme ({fmt(report.total.totalCalls)} llamadas)
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-4">Formato Excel: columna A = Hora (HH:mm), columna B = Llamadas</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background bg-dot-pattern p-6 lg:p-8">
       <ProcessingOverlay active={state.processing} />
+      <Header />
 
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-electric/15 flex items-center justify-center">
-            <Users className="w-4 h-4 text-electric" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-[-0.04em]">Dimensionamiento <span className="text-electric">Inverso</span></h1>
+      {/* Source indicator */}
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+          Datos: {staffingFileLoaded ? "Excel horario" : useManual ? "Distribución uniforme" : "Reporte cargado"}
+        </span>
+        <div className="flex gap-2">
+          <label className="cursor-pointer">
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleStaffingFile(e.target.files[0])} />
+            <span className="text-[10px] text-electric hover:underline cursor-pointer">Cambiar Excel</span>
+          </label>
+          <button onClick={handleReset} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <RotateCcw className="w-3 h-3" /> Reset
+          </button>
         </div>
-        <p className="text-sm text-muted-foreground ml-11">Calcula el staff necesario basado en volumen diario, AHT y horas productivas por agente</p>
-      </motion.div>
-
-      {/* Results Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl border border-border p-5">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-[1.8px] font-semibold">Staff Requerido</span>
-          <div className="text-[36px] font-extrabold leading-none tracking-[-1px] tabular-nums text-electric mt-2">
-            {fmt(result.staffRequired)}
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1.5">Actual: <span className="text-foreground/70 font-medium">{fmt(defaults.staff)}</span></div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="bg-card rounded-xl border border-border p-5">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-[1.8px] font-semibold">Gap</span>
-          <div className="flex items-center gap-2 mt-2">
-            {gapIcon}
-            <span className={`text-[28px] font-extrabold leading-none tracking-[-1px] tabular-nums ${gapColor}`}>
-              {result.gapType === 'deficit' ? '-' : result.gapType === 'excess' ? '+' : ''}{fmt(result.gap)}
-            </span>
-          </div>
-          <div className={`text-[10px] font-semibold mt-1.5 ${gapColor}`}>{gapLabel}</div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="bg-card rounded-xl border border-border p-5">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-[1.8px] font-semibold">Ocupación Estimada</span>
-          <div className="text-[36px] font-extrabold leading-none tracking-[-1px] tabular-nums text-orange mt-2">
-            {result.occupancyEstimated}<span className="text-sm font-semibold text-muted-foreground ml-0.5">%</span>
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1.5">Objetivo: {occupancyTarget}%</div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] text-muted-foreground uppercase tracking-[1.8px] font-semibold">SLA Erlang C</span>
-            <Tooltip>
-              <TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" /></TooltipTrigger>
-              <TooltipContent className="max-w-[200px] text-xs">Nivel de servicio calculado con el modelo Erlang C (aproximación hora pico)</TooltipContent>
-            </Tooltip>
-          </div>
-          <div className={`text-[36px] font-extrabold leading-none tracking-[-1px] tabular-nums mt-2 ${result.erlangSLA >= slaTarget ? 'text-emerald-400' : 'text-destructive'}`}>
-            {result.erlangSLA}<span className="text-sm font-semibold text-muted-foreground ml-0.5">%</span>
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1.5">Objetivo: {slaTarget}%</div>
-        </motion.div>
       </div>
 
-      {/* Calculation Breakdown */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className="bg-card/60 rounded-xl border border-border/50 p-5 mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Info className="w-4 h-4 text-electric" />
-          <h3 className="text-xs font-bold tracking-[1.5px] uppercase text-muted-foreground">Desglose del Cálculo</h3>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Carga operativa total</span>
-            <span className="text-foreground font-semibold tabular-nums">{result.workloadHours} horas-agente</span>
-            <span className="text-[9px] text-muted-foreground block">{fmt(volume)} llamadas × {aht}s ÷ 3600</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Horas productivas/agente</span>
-            <span className="text-foreground font-semibold tabular-nums">{result.productiveHoursPerAgent}h</span>
-            <span className="text-[9px] text-muted-foreground block">{shiftHours}h × {occupancyTarget}%</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Staff base</span>
-            <span className="text-foreground font-semibold tabular-nums">{result.staffBase}</span>
-            <span className="text-[9px] text-muted-foreground block">{result.workloadHours}h / {result.productiveHoursPerAgent}h</span>
-          </div>
-          <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Staff final (+shrinkage)</span>
-            <span className="text-electric font-bold tabular-nums">{fmt(result.staffRequired)}</span>
-            <span className="text-[9px] text-muted-foreground block">{result.staffBase} / (1 - {shrinkage}%)</span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Inputs */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="bg-card rounded-xl border border-border p-6">
-        <h2 className="text-xs font-bold tracking-[1.5px] uppercase text-muted-foreground mb-6">Parámetros de Dimensionamiento</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {/* Volume */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">Volumen Diario</label>
-              <Input type="number" value={volume} onChange={(e) => setVolume(Math.max(0, parseInt(e.target.value) || 0))} className="w-24 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[volume]} min={0} max={Math.ceil(defaults.volume * 3) || 2000} step={1} onValueChange={([v]) => setVolume(v)} className="[&_[role=slider]]:bg-electric [&_[role=slider]]:border-electric [&_.relative>div]:bg-electric" />
+      {/* KPI Cards */}
+      {result && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+            <KpiCard label="Peak Staff" value={fmt(result.peakStaff)} sub={`Hora pico: ${result.peakHour}`} color="text-electric" delay={0} />
+            <KpiCard label="Staff Medio" value={String(result.avgStaff)} sub={`${result.intervals.filter(i => i.calls > 0).length} intervalos activos`} color="text-orange" delay={0.04} />
+            <KpiCard label="SLA Ponderado" value={`${result.weightedSLA}%`} sub={`Objetivo: ${slaTarget}%`} color={result.weightedSLA >= slaTarget ? "text-emerald-400" : "text-destructive"} delay={0.08} />
+            <KpiCard label="Ocupación Media" value={`${result.avgOccupancy}%`} sub={`${fmt(result.totalCalls)} llamadas totales`} color="text-orange" delay={0.12} />
           </div>
 
-          {/* AHT */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">AHT (seg)</label>
-              <Input type="number" value={aht} onChange={(e) => setAht(Math.max(1, parseInt(e.target.value) || 1))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[aht]} min={1} max={Math.ceil(defaults.aht * 3) || 600} step={1} onValueChange={([v]) => setAht(v)} className="[&_[role=slider]]:bg-orange [&_[role=slider]]:border-orange [&_.relative>div]:bg-orange" />
-          </div>
+          {/* Chart */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="mb-8">
+            <StaffingChart intervals={result.intervals} />
+          </motion.div>
 
-          {/* Shift Hours */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">Horas de Turno</label>
-              <Input type="number" value={shiftHours} onChange={(e) => setShiftHours(Math.min(24, Math.max(1, parseInt(e.target.value) || 1)))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[shiftHours]} min={1} max={24} step={0.5} onValueChange={([v]) => setShiftHours(v)} className="[&_[role=slider]]:bg-electric [&_[role=slider]]:border-electric [&_.relative>div]:bg-electric" />
-          </div>
+          {/* Interval Table */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
+            <h3 className="text-xs font-bold tracking-[1.5px] uppercase text-muted-foreground mb-3">Detalle por Intervalo</h3>
+            <IntervalTable intervals={result.intervals} slaTarget={slaTarget} />
+          </motion.div>
+        </>
+      )}
 
-          {/* SLA Target */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">SLA Objetivo (%)</label>
-              <Input type="number" value={slaTarget} onChange={(e) => setSlaTarget(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[slaTarget]} min={50} max={100} step={1} onValueChange={([v]) => setSlaTarget(v)} className="[&_[role=slider]]:bg-emerald-500 [&_[role=slider]]:border-emerald-500 [&_.relative>div]:bg-emerald-500" />
-          </div>
-
-          {/* Time Target */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">Tiempo Objetivo (seg)</label>
-              <Input type="number" value={timeTarget} onChange={(e) => setTimeTarget(Math.max(1, parseInt(e.target.value) || 1))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[timeTarget]} min={5} max={120} step={1} onValueChange={([v]) => setTimeTarget(v)} />
-          </div>
-
-          {/* Occupancy Target */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">Ocupación Objetivo (%)</label>
-              <Input type="number" value={occupancyTarget} onChange={(e) => setOccupancyTarget(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[occupancyTarget]} min={50} max={100} step={1} onValueChange={([v]) => setOccupancyTarget(v)} className="[&_[role=slider]]:bg-orange [&_[role=slider]]:border-orange [&_.relative>div]:bg-orange" />
-          </div>
-
-          {/* Shrinkage */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">Shrinkage (%)</label>
-              <Input type="number" value={shrinkage} onChange={(e) => setShrinkage(Math.min(80, Math.max(0, parseInt(e.target.value) || 0)))} className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
-            </div>
-            <Slider value={[shrinkage]} min={0} max={50} step={1} onValueChange={([v]) => setShrinkage(v)} />
-          </div>
+      {/* Params */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="bg-card rounded-xl border border-border p-6 mb-8">
+        <h2 className="text-xs font-bold tracking-[1.5px] uppercase text-muted-foreground mb-6">Parámetros Erlang C</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+          <ParamSlider label="AHT (seg)" value={aht} min={10} max={600} step={1} onChange={setAht} color="orange" />
+          <ParamSlider label="SLA Objetivo (%)" value={slaTarget} min={50} max={100} step={1} onChange={setSlaTarget} color="emerald" />
+          <ParamSlider label="Tiempo Objetivo (seg)" value={timeTarget} min={5} max={120} step={1} onChange={setTimeTarget} color="default" />
+          <ParamSlider label="Shrinkage (%)" value={shrinkage} min={0} max={50} step={1} onChange={setShrinkage} color="default" />
         </div>
       </motion.div>
+
+      {/* Manual interval editor */}
+      {(useManual || staffingFileLoaded) && activeIntervals && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }} className="bg-card rounded-xl border border-border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-bold tracking-[1.5px] uppercase text-muted-foreground">Editar Intervalos</h2>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => {
+                const last = activeIntervals[activeIntervals.length - 1];
+                const lastH = parseInt(last.hour.split(":")[0]);
+                const nextH = (lastH + 1) % 24;
+                setIntervals([...activeIntervals, { hour: `${String(nextH).padStart(2, "0")}:00`, calls: 0 }]);
+              }} className="gap-1 text-xs h-7">
+                <Plus className="w-3 h-3" /> Intervalo
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
+            {activeIntervals.map((iv, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+                <span className="font-mono text-[11px] text-muted-foreground w-12">{iv.hour}</span>
+                <Input
+                  type="number"
+                  value={iv.calls}
+                  onChange={(e) => handleManualEdit(idx, parseInt(e.target.value) || 0)}
+                  className="h-7 text-xs text-center bg-background border-border tabular-nums w-20"
+                />
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <div className="flex items-center gap-3 mb-1">
+        <div className="w-8 h-8 rounded-lg bg-electric/15 flex items-center justify-center">
+          <Users className="w-4 h-4 text-electric" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-[-0.04em]">Dimensionamiento <span className="text-electric">Erlang C</span></h1>
+      </div>
+      <p className="text-sm text-muted-foreground ml-11">Cálculo por intervalo horario con modelo Erlang C real</p>
+    </motion.div>
+  );
+}
+
+function KpiCard({ label, value, sub, color, delay }: { label: string; value: string; sub: string; color: string; delay: number }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="bg-card rounded-xl border border-border p-5">
+      <span className="text-[9px] text-muted-foreground uppercase tracking-[1.8px] font-semibold">{label}</span>
+      <div className={`text-[36px] font-extrabold leading-none tracking-[-1px] tabular-nums mt-2 ${color}`}>
+        {value}
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-1.5">{sub}</div>
+    </motion.div>
+  );
+}
+
+function ParamSlider({ label, value, min, max, step, onChange, color }: {
+  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; color: string;
+}) {
+  const colorClasses = color === "orange"
+    ? "[&_[role=slider]]:bg-orange [&_[role=slider]]:border-orange [&_.relative>div]:bg-orange"
+    : color === "emerald"
+    ? "[&_[role=slider]]:bg-emerald-500 [&_[role=slider]]:border-emerald-500 [&_.relative>div]:bg-emerald-500"
+    : "";
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <label className="text-[10px] text-muted-foreground uppercase tracking-[1.5px] font-semibold">{label}</label>
+        <Input type="number" value={value} onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
+          className="w-20 h-7 text-xs text-center bg-navy-deep border-border tabular-nums" />
+      </div>
+      <Slider value={[value]} min={min} max={max} step={step} onValueChange={([v]) => onChange(v)} className={colorClasses} />
     </div>
   );
 }
