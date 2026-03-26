@@ -25,7 +25,7 @@ export default function StaffingPage() {
   const [timeTarget, setTimeTarget] = useState(30);
   const [occupancyTarget, setOccupancyTarget] = useState(85);
   const [shrinkage, setShrinkage] = useState(20);
-  const [shiftHours, setShiftHours] = useState(8);
+  const [shiftHours, setShiftHours] = useState(24);
 
   const [lastDefaults, setLastDefaults] = useState(defaults);
   if (defaults !== lastDefaults) {
