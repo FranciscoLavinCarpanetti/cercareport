@@ -147,9 +147,10 @@ export default function Index() {
           setReport(rep);
           toast.success(`Informe generado · ${rows.length} registros procesados`);
         }, 400);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setProcessing(false);
-        setError(err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+        setError(errorMessage);
       }
     };
     reader.onerror = () => {

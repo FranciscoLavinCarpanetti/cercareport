@@ -46,8 +46,9 @@ export function WorkforceProvider({ children }: { children: ReactNode }) {
           setState({ report: rep, processing: false, error: null, mode });
           toast.success(`Informe generado · ${rows.length} registros procesados`);
         }, 400);
-      } catch (err: any) {
-        setState(prev => ({ ...prev, processing: false, error: err.message }));
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+        setState(prev => ({ ...prev, processing: false, error: errorMessage }));
       }
     };
     reader.onerror = () => {

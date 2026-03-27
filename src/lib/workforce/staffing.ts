@@ -54,7 +54,7 @@ function erlangCPw(agents: number, erlangs: number): number {
 
   // Use log-space for numerical stability
   // log(A^N / N!) = N*ln(A) - ln(N!)
-  let logNumerator = N * Math.log(A) - logFactorial(N) + Math.log(N / (N - A));
+  const logNumerator = N * Math.log(A) - logFactorial(N) + Math.log(N / (N - A));
 
   let logDenomSum = -Infinity; // log of sum of terms
   for (let k = 0; k < N; k++) {
