@@ -74,10 +74,19 @@ function ReportView({ mode, report, processing, error, onFile, onReset }: {
 
 export default function ReportPage() {
   const { daily, monthly, activeMode, setActiveMode, handleFile, resetReport } = useWorkforce();
+  const hasReport = daily.report || monthly.report;
 
   return (
     <div className="min-h-screen bg-background bg-dot-pattern">
       <div className="max-w-[840px] mx-auto pt-6 px-6">
+        <div className="flex items-center justify-between mb-4">
+          <div />
+          {hasReport && (
+            <button onClick={() => resetReport(activeMode)} className="h-9 px-4 rounded-lg border border-border text-muted-foreground text-[11px] font-semibold tracking-[0.5px] uppercase inline-flex items-center gap-1.5 snap-transition duration-150 hover:text-foreground hover:border-foreground/20 hover:-translate-y-px">
+              ↩ Nuevo
+            </button>
+          )}
+        </div>
         <Tabs value={activeMode} onValueChange={(v) => setActiveMode(v as ReportMode)}>
           <TabsList className="bg-navy-deep border border-border w-full grid grid-cols-2 h-11">
             <TabsTrigger value="daily" className="text-[11px] font-bold tracking-[1px] uppercase data-[state=active]:bg-orange data-[state=active]:text-accent-foreground data-[state=active]:shadow-none gap-1.5">
