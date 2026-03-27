@@ -18,7 +18,7 @@ interface ScenarioParams {
 }
 
 export default function SimulatorPage() {
-  const { daily, monthly, activeMode, handleFile } = useWorkforce();
+  const { daily, monthly, activeMode, handleFile, resetReport } = useWorkforce();
   const state = activeMode === 'daily' ? daily : monthly;
   const report = state.report;
 
@@ -98,14 +98,19 @@ export default function SimulatorPage() {
     <div className="min-h-screen bg-background bg-dot-pattern p-6 lg:p-8">
       <ProcessingOverlay active={state.processing} />
 
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-orange/15 flex items-center justify-center">
-            <Sliders className="w-4 h-4 text-orange" />
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-orange/15 flex items-center justify-center">
+              <Sliders className="w-4 h-4 text-orange" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-[-0.04em]">Simulador <span className="text-orange">What-If</span></h1>
           </div>
-          <h1 className="text-2xl font-bold tracking-[-0.04em]">Simulador <span className="text-orange">What-If</span></h1>
+          <p className="text-sm text-muted-foreground ml-11">Simula escenarios modificando staff, volumen y AHT en tiempo real</p>
         </div>
-        <p className="text-sm text-muted-foreground ml-11">Simula escenarios modificando staff, volumen y AHT en tiempo real</p>
+        <button onClick={() => resetReport(activeMode)} className="h-9 px-4 rounded-lg border border-border text-muted-foreground text-[11px] font-semibold tracking-[0.5px] uppercase inline-flex items-center gap-1.5 snap-transition duration-150 hover:text-foreground hover:border-foreground/20 hover:-translate-y-px">
+          ↩ Nuevo
+        </button>
       </motion.div>
 
       {/* Status */}
