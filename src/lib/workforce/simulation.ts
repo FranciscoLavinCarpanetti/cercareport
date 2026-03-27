@@ -6,6 +6,7 @@ export interface SimulationInput {
   newStaff: number;
   newVolume: number;
   newAHT: number;
+  shiftHours?: number;
 }
 
 export interface SimulationResult {
@@ -17,7 +18,7 @@ export interface SimulationResult {
 }
 
 export function simulateCapacity(input: SimulationInput): SimulationResult {
-  const { currentStaff, currentVolume, currentAHT, currentWT, newStaff, newVolume, newAHT } = input;
+  const { currentStaff, currentVolume, currentAHT, currentWT, newStaff, newVolume, newAHT, shiftHours = 8 } = input;
 
   if (currentVolume <= 0 || currentStaff <= 0 || newStaff <= 0) {
     return { simulatedWT: 0, occupancy: 0, wtDelta: 0, occupancyDelta: 0, status: 'ok' };
@@ -29,12 +30,13 @@ export function simulateCapacity(input: SimulationInput): SimulationResult {
 
   const simulatedWT = Math.max(0, Math.round(currentWT * volumeRatio * staffRatio * ahtRatio));
 
+  const capacitySeconds = shiftHours * 3600;
   const currentWorkload = currentVolume * currentAHT;
-  const currentCapacity = currentStaff * 3600;
+  const currentCapacity = currentStaff * capacitySeconds;
   const currentOccupancy = currentCapacity > 0 ? (currentWorkload / currentCapacity) * 100 : 0;
 
   const newWorkload = newVolume * newAHT;
-  const newCapacity = newStaff * 3600;
+  const newCapacity = newStaff * capacitySeconds;
   const occupancy = Math.min(100, newCapacity > 0 ? (newWorkload / newCapacity) * 100 : 0);
 
   const wtDelta = currentWT > 0 ? ((simulatedWT - currentWT) / currentWT) * 100 : 0;
