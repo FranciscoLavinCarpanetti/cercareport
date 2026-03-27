@@ -36,7 +36,7 @@ export function simulateCapacity(input: SimulationInput): SimulationResult {
   const currentOccupancy = currentCapacity > 0 ? (currentWorkload / currentCapacity) * 100 : 0;
 
   const newWorkload = newVolume * newAHT;
-  const newCapacity = newStaff * 3600;
+  const newCapacity = newStaff * capacitySeconds;
   const occupancy = Math.min(100, newCapacity > 0 ? (newWorkload / newCapacity) * 100 : 0);
 
   const wtDelta = currentWT > 0 ? ((simulatedWT - currentWT) / currentWT) * 100 : 0;
