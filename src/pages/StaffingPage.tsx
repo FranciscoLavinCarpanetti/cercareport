@@ -45,7 +45,7 @@ function parseStaffingExcel(buffer: ArrayBuffer): IntervalData[] | null {
 }
 
 export default function StaffingPage() {
-  const { daily, monthly, activeMode, handleFile } = useWorkforce();
+  const { daily, monthly, activeMode, handleFile, resetReport } = useWorkforce();
   const state = activeMode === "daily" ? daily : monthly;
   const report = state.report;
 
