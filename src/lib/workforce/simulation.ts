@@ -6,6 +6,7 @@ export interface SimulationInput {
   newStaff: number;
   newVolume: number;
   newAHT: number;
+  shiftHours?: number;
 }
 
 export interface SimulationResult {
