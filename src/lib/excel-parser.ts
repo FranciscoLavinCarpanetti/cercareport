@@ -48,7 +48,7 @@ function normalizeCountry(val: unknown): string | null {
 export function formatDate(val: string): string {
   if (!val) return '';
   const s = String(val).trim();
-  const m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   let d: Date;
   if (m) d = new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
   else d = new Date(s);
@@ -95,7 +95,7 @@ function calculateMetrics(rows: CallRecord[]): Metrics {
 
 function parseDateValue(val: string): Date | null {
   const s = String(val).trim();
-  const m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;

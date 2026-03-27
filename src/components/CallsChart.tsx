@@ -2,6 +2,16 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { motion } from "framer-motion";
 import type { CallRecord } from "@/lib/excel-parser";
 
+interface ChartDataEntry {
+  name: string;
+  calls: number;
+  country: string;
+}
+
+interface TooltipProps {
+  payload: ChartDataEntry;
+}
+
 interface CallsChartProps {
   rows: CallRecord[];
 }
@@ -61,7 +71,7 @@ export function CallsChart({ rows }: CallsChartProps) {
               labelStyle={{ color: '#FF9903', fontWeight: 700, fontSize: 11 }}
               itemStyle={{ color: '#fff' }}
               cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-              formatter={(value: number, _name: string, props: any) => [
+              formatter={(value: number, _name: string, props: TooltipProps) => [
                 `${value.toLocaleString('es-ES')} llamadas · ${props.payload.country}`,
                 ''
               ]}
