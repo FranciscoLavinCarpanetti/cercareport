@@ -164,7 +164,7 @@ export default function StaffingPage() {
   return (
     <div className="min-h-screen bg-background bg-dot-pattern p-6 lg:p-8">
       <ProcessingOverlay active={state.processing} />
-      <Header />
+      <Header onNuevo={() => { handleReset(); resetReport(activeMode); }} />
 
       {/* Source indicator */}
       <div className="flex items-center gap-3 mb-6">
