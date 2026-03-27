@@ -135,7 +135,7 @@ export default function StaffingPage() {
   if (!activeIntervals) {
     return (
       <div className="min-h-screen bg-background bg-dot-pattern p-6 lg:p-8">
-        <Header />
+        <Header onNuevo={() => resetReport(activeMode)} />
         <div className="max-w-2xl mx-auto mt-12 space-y-6">
           <div className="bg-card rounded-xl border border-border p-8 text-center">
             <AlertTriangle className="w-10 h-10 text-orange mx-auto mb-4" />
