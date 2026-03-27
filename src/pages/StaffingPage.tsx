@@ -251,16 +251,23 @@ export default function StaffingPage() {
   );
 }
 
-function Header() {
+function Header({ onNuevo }: { onNuevo?: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-      <div className="flex items-center gap-3 mb-1">
-        <div className="w-8 h-8 rounded-lg bg-electric/15 flex items-center justify-center">
-          <Users className="w-4 h-4 text-electric" />
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-start justify-between">
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-electric/15 flex items-center justify-center">
+            <Users className="w-4 h-4 text-electric" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-[-0.04em]">Dimensionamiento <span className="text-electric">Erlang C</span></h1>
         </div>
-        <h1 className="text-2xl font-bold tracking-[-0.04em]">Dimensionamiento <span className="text-electric">Erlang C</span></h1>
+        <p className="text-sm text-muted-foreground ml-11">Cálculo por intervalo horario con modelo Erlang C real</p>
       </div>
-      <p className="text-sm text-muted-foreground ml-11">Cálculo por intervalo horario con modelo Erlang C real</p>
+      {onNuevo && (
+        <button onClick={onNuevo} className="h-9 px-4 rounded-lg border border-border text-muted-foreground text-[11px] font-semibold tracking-[0.5px] uppercase inline-flex items-center gap-1.5 snap-transition duration-150 hover:text-foreground hover:border-foreground/20 hover:-translate-y-px">
+          ↩ Nuevo
+        </button>
+      )}
     </motion.div>
   );
 }
