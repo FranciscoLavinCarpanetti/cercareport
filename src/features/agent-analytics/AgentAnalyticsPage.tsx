@@ -4,19 +4,20 @@ import { Button } from '@/components/ui/button';
 import { UploadZone } from '@/components/UploadZone';
 import { ProcessingOverlay } from '@/components/ProcessingOverlay';
 import { useAgentAnalytics } from './hooks/useAgentAnalytics';
+import { ColumnMappingStep } from './components/ColumnMappingStep';
 import { StateDistributionChart } from './components/StateDistributionChart';
 import { ConcurrencyChart } from './components/ConcurrencyChart';
 import { EfficiencyTable } from './components/EfficiencyTable';
 
 export default function AgentAnalyticsPage() {
-  const { status, data, error, handleFile, reset } = useAgentAnalytics();
+  const { status, data, error, preview, handleFile, confirmMapping, reset } = useAgentAnalytics();
 
-  if (status === 'idle' || status === 'error') {
+  if (status === 'idle' || (status === 'error' && !preview)) {
     return (
       <div className="relative">
         <UploadZone
           onFileSelected={handleFile}
-          subtitle="Sube un Excel con sesiones de agentes (agentId, start, end, state)"
+          subtitle="Sube un Excel con sesiones de agentes — las columnas se detectan automáticamente"
         />
         {error && (
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-destructive/10 border border-destructive/30 rounded-lg px-5 py-3 text-sm text-destructive font-medium">
@@ -25,6 +26,10 @@ export default function AgentAnalyticsPage() {
         )}
       </div>
     );
+  }
+
+  if (status === 'mapping' && preview) {
+    return <ColumnMappingStep preview={preview} onConfirm={confirmMapping} onBack={reset} />;
   }
 
   if (status === 'loading') {
@@ -41,7 +46,6 @@ export default function AgentAnalyticsPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -56,25 +60,13 @@ export default function AgentAnalyticsPage() {
         </Button>
       </div>
 
-      {/* KPI Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-      >
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard icon={Users} label="Agentes" value={data.uniqueAgents.length} />
         <KpiCard icon={Activity} label="Pico Concurrencia" value={peakConcurrency} suffix=" agentes" />
         <KpiCard icon={TrendingUp} label="Eficiencia Media" value={avgEfficiency} suffix="%" />
       </motion.div>
 
-      {/* Charts */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="space-y-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }} className="space-y-6">
         <StateDistributionChart data={data.stateDistributions} uniqueStates={data.uniqueStates} />
         <ConcurrencyChart data={data.concurrencyCurve} />
         <EfficiencyTable data={data.efficiencies} />
