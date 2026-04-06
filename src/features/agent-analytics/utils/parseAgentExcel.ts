@@ -35,8 +35,8 @@ export function parseAgentExcel(buffer: ArrayBuffer): Session[] {
 
   const agentIdCol = findColumnIndex(headers, ['agentid', 'agent_id', 'agent id', 'id agente', 'id', 'agente']);
   const agentNameCol = findColumnIndex(headers, ['agentname', 'agent_name', 'agent name', 'nombre', 'nombre agente']);
-  const startCol = findColumnIndex(headers, ['start', 'inicio', 'fecha inicio', 'start_time', 'hora inicio']);
-  const endCol = findColumnIndex(headers, ['end', 'fin', 'fecha fin', 'end_time', 'hora fin']);
+  const startCol = findColumnIndex(headers, ['inicio sesion', 'inicio sesión', 'start', 'inicio', 'fecha inicio', 'start_time', 'hora inicio']);
+  const endCol = findColumnIndex(headers, ['fin sesion', 'fin sesión', 'end', 'fin', 'fecha fin', 'end_time', 'hora fin']);
   const stateCol = findColumnIndex(headers, ['state', 'estado', 'status', 'activity', 'actividad']);
 
   if (agentIdCol === -1) throw new Error('No se encontró columna de ID de agente (agentId, id, agente).');
