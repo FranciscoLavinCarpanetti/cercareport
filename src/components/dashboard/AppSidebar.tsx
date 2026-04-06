@@ -1,4 +1,4 @@
-import { Phone, BarChart3, Sliders, Users, ChevronLeft } from "lucide-react";
+import { Phone, BarChart3, Sliders, Users, ChevronLeft, UserCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,6 +17,7 @@ const navItems = [
   { title: "Reporte", url: "/", icon: BarChart3 },
   { title: "Simulador", url: "/simulator", icon: Sliders },
   { title: "Dimensionamiento", url: "/staffing", icon: Users },
+  { title: "Agentes", url: "/agent-analytics", icon: UserCheck },
 ];
 
 export function AppSidebar() {

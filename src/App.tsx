@@ -8,6 +8,7 @@ import ReportPage from "./pages/ReportPage";
 import SimulatorPage from "./pages/SimulatorPage";
 import StaffingPage from "./pages/StaffingPage";
 import NotFound from "./pages/NotFound";
+import AgentAnalyticsPage from "./features/agent-analytics/AgentAnalyticsPage";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
             <Route path="/" element={<ReportPage />} />
             <Route path="/simulator" element={<SimulatorPage />} />
             <Route path="/staffing" element={<StaffingPage />} />
+            <Route path="/agent-analytics" element={<AgentAnalyticsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

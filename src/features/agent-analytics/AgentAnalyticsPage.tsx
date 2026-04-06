@@ -28,7 +28,7 @@ export default function AgentAnalyticsPage() {
   }
 
   if (status === 'loading') {
-    return <ProcessingOverlay />;
+    return <ProcessingOverlay active />;
   }
 
   if (!data) return null;
