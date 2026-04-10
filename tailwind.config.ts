@@ -68,6 +68,9 @@ export default {
           DEFAULT: "hsl(var(--electric))",
           glow: "hsl(var(--electric-glow))",
         },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
         gray: {
           100: "hsl(var(--gray-100))",
           300: "hsl(var(--gray-300))",
