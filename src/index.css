@@ -39,7 +39,7 @@
 
     --radius: 12px;
 
-    /* Extended Telpark tokens */
+    /* Extended Telpark tokens — from brand manual */
     --navy: 236 36% 20%;
     --navy-deep: 237 35% 15%;
     --navy-mid: 236 36% 26%;
@@ -47,10 +47,15 @@
 
     --orange: 36 100% 51%;
     --orange-bright: 38 100% 59%;
-    --orange-deep: 36 100% 45%;
+    --orange-deep: 28 100% 50%;
 
     --electric: 195 95% 74%;
     --electric-glow: 195 95% 74%;
+
+    /* Support colors (brand manual B9) */
+    --success: 136 56% 43%;
+    --warning: 28 100% 50%;
+    --danger: 349 100% 41%;
 
     --gray-100: 228 33% 92%;
     --gray-300: 226 27% 75%;

@@ -1,4 +1,4 @@
-import { Phone, BarChart3, Sliders, Users, ChevronLeft, UserCheck } from "lucide-react";
+import { BarChart3, Sliders, Users, ChevronLeft, UserCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -20,6 +20,27 @@ const navItems = [
   { title: "Agentes", url: "/agent-analytics", icon: UserCheck },
 ];
 
+function TelparkLogo({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className={`flex items-center gap-3 px-4 py-5 border-b border-border ${collapsed ? 'justify-center' : ''}`}>
+      {/* Telpark symbol — orange rounded square with T */}
+      <div className="w-9 h-9 rounded-xl bg-orange flex items-center justify-center shrink-0 shadow-orange">
+        <span className="text-accent-foreground font-extrabold text-[18px] leading-none tracking-tighter">T</span>
+      </div>
+      {!collapsed && (
+        <div className="overflow-hidden">
+          <div className="text-[14px] font-bold leading-tight text-foreground">
+            <span className="text-orange">tel</span>park
+          </div>
+          <span className="text-[8px] font-semibold text-muted-foreground tracking-[1.5px] uppercase block mt-0.5">
+            WFM Intelligence
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
@@ -28,22 +49,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-navy-deep">
       <SidebarContent className="bg-navy-deep">
-        {/* Logo */}
-        <div className={`flex items-center gap-3 px-4 py-5 border-b border-border ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-9 h-9 rounded-lg bg-orange flex items-center justify-center shrink-0">
-            <Phone className="w-[18px] h-[18px] text-accent-foreground" strokeWidth={2.5} />
-          </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <div className="text-[13px] font-bold tracking-[1.5px] uppercase leading-tight text-foreground">
-                CERCA <span className="text-orange">WFM</span>
-              </div>
-              <span className="text-[8px] font-semibold text-muted-foreground tracking-[1.5px] uppercase block">
-                Workforce Intelligence
-              </span>
-            </div>
-          )}
-        </div>
+        <TelparkLogo collapsed={collapsed} />
 
         <SidebarGroup>
           <SidebarGroupContent>
@@ -58,7 +64,7 @@ export function AppSidebar() {
                         end
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[12px] font-semibold tracking-[0.5px] uppercase transition-all duration-150 ${
                           isActive
-                            ? 'bg-orange/15 text-orange'
+                            ? 'bg-orange/15 text-orange border-l-2 border-orange'
                             : 'text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]'
                         }`}
                         activeClassName=""
