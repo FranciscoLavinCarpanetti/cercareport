@@ -11,10 +11,13 @@ export default function DashboardLayout() {
         <div className="min-h-screen flex w-full">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
-            <header className="h-11 flex items-center border-b border-border bg-navy-deep px-3 lg:hidden">
+            <header className="h-12 flex items-center border-b border-border bg-navy-deep px-4 lg:hidden">
               <SidebarTrigger>
                 <Menu className="w-4 h-4 text-muted-foreground" />
               </SidebarTrigger>
+              <div className="ml-3 text-[13px] font-bold text-foreground">
+                <span className="text-orange">tel</span>park
+              </div>
             </header>
             <main className="flex-1 overflow-auto">
               <Outlet />
